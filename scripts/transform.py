@@ -2,8 +2,8 @@ import pandas as pd
 
 date = pd.Timestamp.today().strftime("%Y-%m-%d")
 
-raw_path = "etl_project1/data/raw_data"
-cleaned_path = "etl_project1/data/cleaned_data"
+raw_path = "/data/raw_data"
+cleaned_path = "/data/cleaned_data"
 
 def transform(input_path: str, output_path: str, **kwargs):
     data_path = f"{raw_data}/raw_weather_today_{date}.csv"

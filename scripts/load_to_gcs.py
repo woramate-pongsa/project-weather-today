@@ -6,7 +6,7 @@ from google.oauth2 import service_account
 date = pd.Timestamp.today().strftime("%Y-%m-%d")
 
 GCP_PROJECT_ID = "warm-helix-412914"
-DAGS_FOLDER = "etl_project1/data/raw_data"
+DAGS_FOLDER = "/data/raw_data"
 
 BUSINESS_DOMAIN = "weather_today_data"
 DATA = f"raw_weather_today_{date}"

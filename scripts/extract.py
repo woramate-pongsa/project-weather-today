@@ -57,5 +57,5 @@ def extract():
         "Wind_speed": wind_speed
     })
 
-    save_path = f"etl_project1/data/raw_data/raw_weather_today_{date}.csv"
+    save_path = f"/data/raw_data/raw_weather_today_{date}.csv"
     df.to_csv(save_path, index=False)
