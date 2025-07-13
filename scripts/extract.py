@@ -1,10 +1,16 @@
+import os 
+import json
 import requests
-import xml.etree.ElementTree as ET
 import pandas as pd
+from dotenv import load_dotenv
+import xml.etree.ElementTree as ET
 
-date = pd.Timestamp.today().strftime("%Y-%m-%d")
+from google.cloud import storage
+from google.oauth2 import service_account
 
 def extract():
+    date = pd.Timestamp.today().strftime("%Y-%m-%d")
+    ## Extract data from API
     province = []
     latitude = []
     longitude = []
@@ -13,8 +19,9 @@ def extract():
     max_temperature = []
     min_temperature = []
     wind_speed = []
-
-    response = requests.get("https://data.tmd.go.th/api/WeatherToday/V2/?uid=api&ukey=api12345")
+    
+    api_key = os.environ.get("API_KEY")
+    response = requests.get(api_key)
     if response.status_code == 200:
         root = ET.fromstring(response.text)
         station = root.find("Stations")
@@ -46,7 +53,7 @@ def extract():
     else:
         print("Request failed", response.status_code)
 
-    df = pd.DataFrame({
+    raw_data = pd.DataFrame({
         "Province": province,
         "Latitude": latitude,
         "Longitude": longitude,
@@ -57,5 +64,26 @@ def extract():
         "Wind_speed": wind_speed
     })
 
-    save_path = f"/data/raw_data/raw_weather_today_{date}.csv"
-    df.to_csv(save_path, index=False)
+    ## Load raw data to GCS
+    # Config
+    GCP_PROJECT_ID = "warm-helix-412914"
+    BUCKET_NAME = "lake_project"
+    BUSINESS_DOMAIN = "weather_today_data"
+    DATA_NAME = f"{date}_weather_today"
+
+    load_dotenv()
+    keyfile_gcs = os.environ.get("KEYFILE_PATH_GCS")
+    
+    service_account_info_gcs = json.load(open(keyfile_gcs))
+    credentials_gcs = service_account.Credentials.from_service_account_info(service_account_info_gcs)
+
+    # Load data to gcs
+    storage_client = storage.Client(project=GCP_PROJECT_ID,credentials=credentials_gcs,)
+    bucket = storage_client.bucket(BUCKET_NAME)
+
+    # Destination to upload
+    destination_blob_name = f"{BUSINESS_DOMAIN}/raw_data/{DATA_NAME}.csv"
+    blob = bucket.blob(destination_blob_name)
+
+    # Destination to get data
+    blob.upload_from_filename(raw_data)
