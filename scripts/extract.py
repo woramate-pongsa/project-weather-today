@@ -3,13 +3,18 @@ import json
 import requests
 import pandas as pd
 from dotenv import load_dotenv
+from io import StringIO
 import xml.etree.ElementTree as ET
-
 from google.cloud import storage
 from google.oauth2 import service_account
 
-def extract():
+def extract_from_api():
     date = pd.Timestamp.today().strftime("%Y-%m-%d")
+    # load_dotenv(dotenv_path=os.path.join(
+    #     os.path.dirname(__file__),
+    #     "../config/.env"
+    # ))
+
     ## Extract data from API
     province = []
     latitude = []
@@ -19,9 +24,10 @@ def extract():
     max_temperature = []
     min_temperature = []
     wind_speed = []
-    
+
     api_key = os.environ.get("API_KEY")
     response = requests.get(api_key)
+    
     if response.status_code == 200:
         root = ET.fromstring(response.text)
         station = root.find("Stations")
@@ -54,36 +60,46 @@ def extract():
         print("Request failed", response.status_code)
 
     raw_data = pd.DataFrame({
-        "Province": province,
-        "Latitude": latitude,
-        "Longitude": longitude,
-        "Date_time": date_time,
-        "Temperature": temperature,
-        "Max_temperature": max_temperature,
-        "Min_temperature": min_temperature,
-        "Wind_speed": wind_speed
+        "province": province,
+        "latitude": latitude,
+        "longitude": longitude,
+        "date_time": date_time,
+        "temperature": temperature,
+        "max_temperature": max_temperature,
+        "min_temperature": min_temperature,
+        "wind_speed": wind_speed
     })
+
+    # Create file memory
+    csv_buffer = StringIO()
+    raw_data.to_csv(csv_buffer, index=False)
 
     ## Load raw data to GCS
     # Config
-    GCP_PROJECT_ID = "warm-helix-412914"
+    GCP_PROJECT_ID = os.environ.get("PROJECT_ID")
     BUCKET_NAME = "lake_project"
     BUSINESS_DOMAIN = "weather_today_data"
     DATA_NAME = f"{date}_weather_today"
 
-    load_dotenv()
     keyfile_gcs = os.environ.get("KEYFILE_PATH_GCS")
     
     service_account_info_gcs = json.load(open(keyfile_gcs))
     credentials_gcs = service_account.Credentials.from_service_account_info(service_account_info_gcs)
 
-    # Load data to gcs
-    storage_client = storage.Client(project=GCP_PROJECT_ID,credentials=credentials_gcs,)
+    # Connect to GCS
+    storage_client = storage.Client(
+        project=GCP_PROJECT_ID,
+        credentials=credentials_gcs,
+    )
     bucket = storage_client.bucket(BUCKET_NAME)
 
     # Destination to upload
-    destination_blob_name = f"{BUSINESS_DOMAIN}/raw_data/{DATA_NAME}.csv"
+    destination_blob_name = f"{BUSINESS_DOMAIN}/raw_data/{date}/{DATA_NAME}.csv"
     blob = bucket.blob(destination_blob_name)
 
     # Destination to get data
-    blob.upload_from_filename(raw_data)
+    blob.upload_from_string(csv_buffer.getvalue(), content_type="text/csv")
+
+    print("Extract and load to GCS complete!")
+
+extract_from_api()

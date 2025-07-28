@@ -1,61 +1,44 @@
-import os
-import requests
-from datetime import datetime, timedelta
-import pandas as pd
+# import os
+# import sys
 
-from scripts.extract import extract
-from scripts.transform import transform
-from scripts.load_to_gcs import load_to_gcs
-from scripts.load_to_bq import load_to_bq
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from datetime import datetime, timedelta
+from scripts.extract import extract_from_api
+from scripts.transform import transform_and_load_cleaned_data_to_gcs
+from scripts.load import load_gcs_to_bq
 
 from airflow import DAG
-from airflow.sensors.filesystem import FileSensor
-from airflow.operators.python import PythonOperator
-
-today = pd.Timestamp.today().strftime("%Y-%m-%d")
+from airflow.providers.standard.sensors.filesystem import FileSensor
+from airflow.providers.standard.operators.python import PythonOperator
 
 default_args = {
-    "owner": "airflow_etl",
+    "owner": "etl_pipeline",
     "retries": 1,
     "retry_delay": timedelta(minutes=5)
-}
+    }
 
 with DAG(
     dag_id='etl_pipeline',
-    start_date=datetime(2025, 6, 26),
-    schedule_interval="@daily",
+    start_date=datetime(2025, 7, 23),
+    schedule="0 21 * * *",
     default_args=default_args,
-    sla=timedelta(hours=2)
-) as dag:
+    catchup=False
+    ) as dag:
 
-    extract_data_from_api = PythonOperator(
-        task_id="extract_data_from_api",
-        python_callable=extract,
+    task_extract_from_api = PythonOperator(
+        task_id="extract_from_api",
+        python_callable=extract_from_api,
     )
 
-    load_data_to_gcs = PythonOperator(  
-        task_id="load_data_to_gcs",
-        python_callable=load_to_gcs,
-        op_kwargs
+    task_transform_and_load_cleaned_data_to_gcs = PythonOperator(  
+        task_id="transform_and_load_cleaned_data_to_gcs",
+        python_callable=transform_and_load_cleaned_data_to_gcs,
     )
 
-
-    transform_task = PythonOperator(
-        task_id="transform_task",
-        python_callable=transform,
-        op_kwargs= {
-            "input_path": "etl_project1/data/raw_data.csv",
-            "output_path": "etl_project1/data/cleaned_data.csv"
-        }
+    task_load_gcs_to_bq = PythonOperator(
+        task_id="load_gcs_to_bq",
+        python_callable=load_gcs_to_bq,
     )
 
-    load_task = PythonOperator(
-        task_id="load_task",
-        python_callable=load,
-        op_kwargs= {
-            "input_path": "etl_project1/data/cleaned_data.csv",
-            "output_path": "bigquery_data_warehouse" 
-        }
-    )
-
-extract_task >> transform_task >>  >> load_task
+task_extract_from_api >> task_transform_and_load_cleaned_data_to_gcs >> task_load_gcs_to_bq
