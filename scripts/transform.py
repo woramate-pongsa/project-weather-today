@@ -1,19 +1,70 @@
+import os
+import json
 import pandas as pd
+from io import StringIO, BytesIO
+from dotenv import load_dotenv
+from google.cloud import storage
+from google.oauth2 import service_account
 
-date = pd.Timestamp.today().strftime("%Y-%m-%d")
+def transform_and_load_cleaned_data_to_gcs():
+    date = pd.Timestamp.today().strftime("%Y-%m-%d")
+    # load_dotenv(dotenv_path=os.path.join(
+    #     os.path.dirname(__file__),
+    #     "../config/.env"
+    # ))
 
-raw_path = "/data/raw_data"
-cleaned_path = "/data/cleaned_data"
+    ## Extract raw data from GSC
+    # Config
+    GCP_PROJECT_ID = "warm-helix-412914"
+    BUCKET_NAME = "lake_project"
+    BUSINESS_DOMAIN = "weather_today_data"
+    DATA_NAME = f"{date}_weather_today"
 
-def transform(input_path: str, output_path: str, **kwargs):
-    data_path = f"{raw_data}/raw_weather_today_{date}.csv"
-    raw_data = pd.read_csv(f"{raw_path}/raw_weather_today_{date}.csv")
+    keyfile_gcs = os.environ.get("KEYFILE_PATH_GCS")
 
-    raw_data['Date_time'] = pd.to_datetime(raw_data['Date_time'], format="%Y-%m-%d")
-    raw_data['Month'] = raw_data['Date_time'].dt.month
-    raw_data['Latitude'] = raw_data['Latitude'].round(2)
-    raw_data['Longitude'] = raw_data['Longitude'].round(2)
-    clean_data = raw_data.dropna()
+    # Read GCS key file
+    service_account_info_gcs = json.load(open(keyfile_gcs))
+    credentials_gcs = service_account.Credentials.from_service_account_info(
+        service_account_info_gcs
+    )
 
-    save_path = f"{cleaned_path}/cleaned_weather_today_{date}.csv"
-    pd.to_csv(save_path, index=False)
+    # Connect to GCS
+    storage_client = storage.Client(
+        project=GCP_PROJECT_ID, 
+        credentials=credentials_gcs
+    )
+    bucket = storage_client.bucket(BUCKET_NAME)
+
+    # Extract data
+    source_blob_name = f"{BUSINESS_DOMAIN}/raw_data/{date}/{DATA_NAME}.csv"
+    raw_blob = bucket.blob(source_blob_name)
+    data_as_string = raw_blob.download_as_string()
+
+    # Decode and use pandas read csv
+    csv_file = StringIO(data_as_string.decode("utf-8"))
+    raw_data = pd.read_csv(csv_file)
+
+    ## Transform data
+    raw_data["date_time"] = pd.to_datetime(raw_data["date_time"])
+    raw_data["month"] = raw_data["date_time"].dt.month
+    raw_data["latitude"] = raw_data["latitude"].round(2)
+    raw_data["longitude"] = raw_data["longitude"].round(2)
+    cleaned_data = raw_data.dropna(subset=["date_time", "latitude", "longitude"])
+    cleaned_data["date_time"] = cleaned_data["date_time"].dt.strftime('%Y-%m-%d %H:%M:%S')
+
+    # Create file memory
+    parquet_buffer = BytesIO()
+    cleaned_data.to_parquet(parquet_buffer, index=False, compression="snappy")
+    parquet_bytes = parquet_buffer.getvalue()
+
+    ## Load cleaned data to GCS in clean zone
+    cleaned_data_destination_blob_name = f"{BUSINESS_DOMAIN}/cleaned_data/{date}/{DATA_NAME}.parquet"
+    cleaned_blob = bucket.blob(cleaned_data_destination_blob_name)
+    cleaned_blob.upload_from_string(
+        parquet_bytes,
+        content_type="application/octet-stream"
+    )
+
+    print("Transform and load cleaned_data in parquet to GCS complete!")
+
+transform_and_load_cleaned_data_to_gcs()
