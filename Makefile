@@ -1,8 +1,13 @@
+run: 
+	poetry run python dags/etl_pipeline.py
 build:
 	docker compose build
 
 up:
 	docker compose up -d
+
+build up:
+	docker compose up -d --build
 
 stop:
 	docker compose stop

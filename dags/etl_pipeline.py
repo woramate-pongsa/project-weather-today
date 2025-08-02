@@ -1,7 +1,7 @@
-# import os
-# import sys
+import os
+import sys
 
-# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from datetime import datetime, timedelta
 from scripts.extract import extract_from_api
@@ -20,7 +20,7 @@ default_args = {
 
 with DAG(
     dag_id='etl_pipeline',
-    start_date=datetime(2025, 7, 23),
+    start_date=datetime(2025, 8, 2),
     schedule="0 21 * * *",
     default_args=default_args,
     catchup=False
@@ -41,4 +41,4 @@ with DAG(
         python_callable=load_gcs_to_bq,
     )
 
-task_extract_from_api >> task_transform_and_load_cleaned_data_to_gcs >> task_load_gcs_to_bq
+    task_extract_from_api >> task_transform_and_load_cleaned_data_to_gcs >> task_load_gcs_to_bq

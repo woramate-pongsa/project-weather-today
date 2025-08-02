@@ -12,7 +12,7 @@ def load_gcs_to_bq():
     #     "../config/.env"
     # ))
 
-    GCP_PROJECT_ID = "warm-helix-412914"
+    GCP_PROJECT_ID = os.environ.get("PROJECT_ID")
     BUCKET_NAME = "lake_project"
     BUSINESS_DOMAIN = "weather_today_data"
     DATA_NAME = f"{date}_weather_today"
@@ -20,7 +20,7 @@ def load_gcs_to_bq():
     DATASET = "my_project"
 
     # Prepare and Load Credentials to Connect to GCP Services
-    keyfile_bigquery = os.environ.get("KEYFILE_PATH_BQ")
+    keyfile_bigquery = os.environ.get("GOOGLE_BIGQUERY_APPLICATION_CREDENTIALS")
     service_account_info_bigquery = json.load(open(keyfile_bigquery))
     credentials_bigquery = service_account.Credentials.from_service_account_info(
         service_account_info_bigquery
@@ -62,4 +62,5 @@ def load_gcs_to_bq():
     table = bigquery_client.get_table(table_id)
     print(f"Loaded {table.num_rows} rows and {len(table.schema)} columns to {table_id}")
 
-load_gcs_to_bq()
+if __name__ == "__main__":
+    load_gcs_to_bq()

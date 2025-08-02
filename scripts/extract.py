@@ -10,6 +10,7 @@ from google.oauth2 import service_account
 
 def extract_from_api():
     date = pd.Timestamp.today().strftime("%Y-%m-%d")
+    # load_dotenv()
     # load_dotenv(dotenv_path=os.path.join(
     #     os.path.dirname(__file__),
     #     "../config/.env"
@@ -25,6 +26,7 @@ def extract_from_api():
     min_temperature = []
     wind_speed = []
 
+    # api_key = os.environ.get("API_KEY")
     api_key = os.environ.get("API_KEY")
     response = requests.get(api_key)
     
@@ -81,7 +83,7 @@ def extract_from_api():
     BUSINESS_DOMAIN = "weather_today_data"
     DATA_NAME = f"{date}_weather_today"
 
-    keyfile_gcs = os.environ.get("KEYFILE_PATH_GCS")
+    keyfile_gcs = os.environ.get("GOOGLE_CLOUD_STORAGE_APPLICATION_CREDENTIALS")
     
     service_account_info_gcs = json.load(open(keyfile_gcs))
     credentials_gcs = service_account.Credentials.from_service_account_info(service_account_info_gcs)
@@ -102,4 +104,5 @@ def extract_from_api():
 
     print("Extract and load to GCS complete!")
 
-extract_from_api()
+if __name__ == "__main__":
+    extract_from_api()
