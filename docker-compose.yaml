@@ -1,69 +1,28 @@
-# Licensed to the Apache Software Foundation (ASF) under one
-# or more contributor license agreements.  See the NOTICE file
-# distributed with this work for additional information
-# regarding copyright ownership.  The ASF licenses this file
-# to you under the Apache License, Version 2.0 (the
-# "License"); you may not use this file except in compliance
-# with the License.  You may obtain a copy of the License at
-#
-#   http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an
-# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-# KIND, either express or implied.  See the License for the
-# specific language governing permissions and limitations
-# under the License.
-#
-
-# Basic Airflow cluster configuration for CeleryExecutor with Redis and PostgreSQL.
-#
-# WARNING: This configuration is for local development. Do not use it in a production deployment.
-#
-# This configuration supports basic configuration using environment variables or an .env file
-# The following variables are supported:
-#
-# AIRFLOW_IMAGE_NAME           - Docker image name used to run Airflow.
-#                                Default: apache/airflow:3.0.3
-# AIRFLOW_UID                  - User ID in Airflow containers
-#                                Default: 50000
-# AIRFLOW_PROJ_DIR             - Base path to which all the files will be volumed.
-#                                Default: .
-# Those configurations are useful mostly in case of standalone testing/running Airflow in test/try-out mode
-#
-# _AIRFLOW_WWW_USER_USERNAME   - Username for the administrator account (if requested).
-#                                Default: airflow
-# _AIRFLOW_WWW_USER_PASSWORD   - Password for the administrator account (if requested).
-#                                Default: airflow
-# _PIP_ADDITIONAL_REQUIREMENTS - Additional PIP requirements to add when starting all containers.
-#                                Use this option ONLY for quick checks. Installing requirements at container
-#                                startup is done EVERY TIME the service is started.
-#                                A better way is to build a custom image or extend the official image
-#                                as described in https://airflow.apache.org/docs/docker-stack/build.html.
-#                                Default: ''
-#
-# Feel free to modify this file to suit your needs.
 ---
 x-airflow-common:
   &airflow-common
   # In order to add custom dependencies or upgrade provider distributions you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-  # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.0.3}
+  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.0.3}
   build:
     context: .
     dockerfile: Dockerfile
   environment:
     &airflow-common-env
-    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
     AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
-    AIRFLOW__CORE__LOAD_EXAMPLES: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'
+    GOOGLE_CLOUD_STORAGE_APPLICATION_CREDENTIALS: /opt/airflow/credentials/service_accounts_gcs.json
+    GOOGLE_BIGQUERY_APPLICATION_CREDENTIALS: /opt/airflow/credentials/service_accounts_bq.json
+    API_KEY: 'https://data.tmd.go.th/api/WeatherToday/V2/?uid=api&ukey=api12345'
+    PROJECT_ID: 'warm-helix-412914'
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
@@ -80,21 +39,19 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
     - ./dags:/opt/airflow/dags
-    - ./scripts:/opt/airflow/scripts  # <-- เพิ่ม: ทำให้ import scripts ได้
-    - ./config:/opt/airflow/config    # <-- เพิ่ม: ทำให้เข้าถึง airflow.cfg ได้
-    - ./credentials:/opt/airflow/credentials # <-- เพิ่ม: ทำให้เข้าถึง service account ได้
+    - ./dbt_model:/opt/airflow/dbt
+    - ./credentials:/opt/airflow/credentials:ro
     - ./logs:/opt/airflow/logs
+    - ./config:/opt/airflow/config
     - ./plugins:/opt/airflow/plugins
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
-    redis:
-      condition: service_healthy
+    # redis:
+    #   condition: service_healthy
     postgres:
       condition: service_healthy
-  env_file:
-    - ./config/.env
- 
+
 services:
   postgres:
     image: postgres:13
@@ -111,25 +68,27 @@ services:
       start_period: 5s
     restart: always
 
-  redis:
-    # Redis is limited to 7.2-bookworm due to licencing change
-    # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
-    image: redis:7.2-bookworm
-    expose:
-      - 6379
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 30s
-      retries: 50
-      start_period: 30s
-    restart: always
+  # redis:
+  #   # Redis is limited to 7.2-bookworm due to licencing change
+  #   # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
+  #   image: redis:7.2-bookworm
+  #   expose:
+  #     - 6379
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 30s
+  #     retries: 50
+  #     start_period: 30s
+  #   restart: always
 
   airflow-apiserver:
     <<: *airflow-common
     command: api-server
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/version"]
       interval: 30s
@@ -145,6 +104,8 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
+    env_file:
+      - .env
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
       interval: 30s
@@ -160,6 +121,8 @@ services:
   airflow-dag-processor:
     <<: *airflow-common
     command: dag-processor
+    env_file:
+      - .env
     healthcheck:
       test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
       interval: 30s
@@ -184,11 +147,18 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+    env_file:
+      - .env
     environment:
       <<: *airflow-common-env
       # Required to handle warm shutdown of the celery workers properly
       # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
       DUMB_INIT_SETSID: "0"
+      # GOOGLE_CLOUD_STORAGE_APPLICATION_CREDENTIALS: /opt/airflow/credentials/service_accounts_gcs.json # GCS Credential
+      # GOOGLE_BIGQUERY_APPLICATION_CREDENTIALS: /opt/airflow/credentials/service_accounts_bq.json # BQ Credential
+      # API_KEY: https://data.tmd.go.th/api/WeatherToday/V2/?uid=api&ukey=api12345 # API URL
+    # volumes:
+      # - ./credentials:/opt/airflow/credentials:ro
     restart: always
     depends_on:
       <<: *airflow-common-depends-on
@@ -197,20 +167,20 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
-  airflow-triggerer:
-    <<: *airflow-common
-    command: triggerer
-    healthcheck:
-      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      airflow-init:
-        condition: service_completed_successfully
+  # airflow-triggerer:
+  #   <<: *airflow-common
+  #   command: triggerer
+  #   healthcheck:
+  #     test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 30s
+  #   restart: always
+  #   depends_on:
+  #     <<: *airflow-common-depends-on
+  #     airflow-init:
+  #       condition: service_completed_successfully
 
   airflow-init:
     <<: *airflow-common

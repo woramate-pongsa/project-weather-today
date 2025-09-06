@@ -15,12 +15,12 @@ def transform_and_load_cleaned_data_to_gcs():
 
     ## Extract raw data from GSC
     # Config
-    GCP_PROJECT_ID = "warm-helix-412914"
+    GCP_PROJECT_ID = os.environ.get("PROJECT_ID")
     BUCKET_NAME = "lake_project"
     BUSINESS_DOMAIN = "weather_today_data"
     DATA_NAME = f"{date}_weather_today"
 
-    keyfile_gcs = os.environ.get("KEYFILE_PATH_GCS")
+    keyfile_gcs = os.environ.get("GOOGLE_CLOUD_STORAGE_APPLICATION_CREDENTIALS")
 
     # Read GCS key file
     service_account_info_gcs = json.load(open(keyfile_gcs))
@@ -46,11 +46,15 @@ def transform_and_load_cleaned_data_to_gcs():
 
     ## Transform data
     raw_data["date_time"] = pd.to_datetime(raw_data["date_time"])
-    raw_data["month"] = raw_data["date_time"].dt.month
     raw_data["latitude"] = raw_data["latitude"].round(2)
     raw_data["longitude"] = raw_data["longitude"].round(2)
-    cleaned_data = raw_data.dropna(subset=["date_time", "latitude", "longitude"])
-    cleaned_data["date_time"] = cleaned_data["date_time"].dt.strftime('%Y-%m-%d %H:%M:%S')
+    raw_data["wind_speed"] = raw_data["wind_speed"].fillna(0.0)
+    cleaned_data = raw_data.fillna({
+        "latitude": 0.0, "longitude": 0.0, 
+        "temperature": 0.0, "max_temperature": 0.0, 
+        "min_temperature": 0.0, "wind_speed": 0.0})
+    # cleaned_data["date_time"] = cleaned_data["date_time"].dt.strftime('%Y-%m-%d %H:%M:%S')
+    cleaned_data["date_time"] = cleaned_data["date_time"].astype("datetime64[us]")
 
     # Create file memory
     parquet_buffer = BytesIO()
@@ -67,4 +71,5 @@ def transform_and_load_cleaned_data_to_gcs():
 
     print("Transform and load cleaned_data in parquet to GCS complete!")
 
-transform_and_load_cleaned_data_to_gcs()
+if __name__ == "__main__":
+    transform_and_load_cleaned_data_to_gcs()
