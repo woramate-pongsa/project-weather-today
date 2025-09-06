@@ -1,5 +1,0 @@
-pandas
-requests
-google-cloud-storage
-google-cloud-bigquery
-python-dotenv

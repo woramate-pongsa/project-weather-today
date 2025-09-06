@@ -1,0 +1,4 @@
+{"timestamp":"2025-08-02T10:51:03.141152","level":"info","event":"DAG bundles loaded: dags-folder","logger":"airflow.dag_processing.bundles.manager.DagBundlesManager"}
+{"timestamp":"2025-08-02T10:51:03.142874","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/etl_pipeline.py","logger":"airflow.models.dagbag.DagBag"}
+{"timestamp":"2025-08-02T10:51:09.474219Z","level":"info","event":"Loaded 126 rows and 9 columns to warm-helix-412914.my_project.2025-08-02_weather_today","chan":"stdout","logger":"task"}
+{"timestamp":"2025-08-02T10:51:09.478637","level":"info","event":"Done. Returned value was: None","logger":"airflow.task.operators.airflow.providers.standard.operators.python.PythonOperator"}

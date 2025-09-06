@@ -30,7 +30,7 @@ def transform_and_load_cleaned_data_to_gcs():
 
     # Connect to GCS
     storage_client = storage.Client(
-        project=GCP_PROJECT_ID, 
+        project=GCP_PROJECT_ID,
         credentials=credentials_gcs
     )
     bucket = storage_client.bucket(BUCKET_NAME)

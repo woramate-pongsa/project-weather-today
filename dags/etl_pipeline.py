@@ -43,4 +43,4 @@ with DAG(
         python_callable=load_gcs_to_bq,
     )
 
-task_extract_from_api >> task_transform_and_load_cleaned_data_to_gcs >> task_load_gcs_to_bq
+    task_extract_from_api >> task_transform_and_load_cleaned_data_to_gcs >> task_load_gcs_to_bq

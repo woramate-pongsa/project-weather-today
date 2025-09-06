@@ -27,6 +27,7 @@ def extract_from_api():
     min_temperature = []
     wind_speed = []
 
+    # api_key = os.environ.get("API_KEY")
     api_key = os.environ.get("API_KEY")
     response = requests.get(api_key)
     
