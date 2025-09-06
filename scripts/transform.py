@@ -46,11 +46,15 @@ def transform_and_load_cleaned_data_to_gcs():
 
     ## Transform data
     raw_data["date_time"] = pd.to_datetime(raw_data["date_time"])
-    raw_data["month"] = raw_data["date_time"].dt.month
     raw_data["latitude"] = raw_data["latitude"].round(2)
     raw_data["longitude"] = raw_data["longitude"].round(2)
-    cleaned_data = raw_data.dropna(subset=["date_time", "latitude", "longitude"])
-    cleaned_data["date_time"] = cleaned_data["date_time"].dt.strftime('%Y-%m-%d %H:%M:%S')
+    raw_data["wind_speed"] = raw_data["wind_speed"].fillna(0.0)
+    cleaned_data = raw_data.fillna({
+        "latitude": 0.0, "longitude": 0.0, 
+        "temperature": 0.0, "max_temperature": 0.0, 
+        "min_temperature": 0.0, "wind_speed": 0.0})
+    # cleaned_data["date_time"] = cleaned_data["date_time"].dt.strftime('%Y-%m-%d %H:%M:%S')
+    cleaned_data["date_time"] = cleaned_data["date_time"].astype("datetime64[us]")
 
     # Create file memory
     parquet_buffer = BytesIO()

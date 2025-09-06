@@ -11,6 +11,8 @@ from scripts.load import load_gcs_to_bq
 from airflow import DAG
 from airflow.providers.standard.sensors.filesystem import FileSensor
 from airflow.providers.standard.operators.python import PythonOperator
+from airflow.providers.standard.operators.bash import BashOperator
+
 
 default_args = {
     "owner": "etl_pipeline",

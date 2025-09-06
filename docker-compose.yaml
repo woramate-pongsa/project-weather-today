@@ -22,6 +22,7 @@ x-airflow-common:
     GOOGLE_CLOUD_STORAGE_APPLICATION_CREDENTIALS: /opt/airflow/credentials/service_accounts_gcs.json
     GOOGLE_BIGQUERY_APPLICATION_CREDENTIALS: /opt/airflow/credentials/service_accounts_bq.json
     API_KEY: 'https://data.tmd.go.th/api/WeatherToday/V2/?uid=api&ukey=api12345'
+    PROJECT_ID: 'warm-helix-412914'
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
@@ -37,7 +38,12 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+    - ./dags:/opt/airflow/dags
+    - ./dbt_model:/opt/airflow/dbt
     - ./credentials:/opt/airflow/credentials:ro
+    - ./logs:/opt/airflow/logs
+    - ./config:/opt/airflow/config
+    - ./plugins:/opt/airflow/plugins
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
